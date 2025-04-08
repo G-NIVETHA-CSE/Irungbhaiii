@@ -1,0 +1,58 @@
+name: irungbhaii
+description: "A new Flutter project."
+
+publish_to: 'none'  # Remove this line if you want to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter_sound: ^9.2.13
+  path_provider: ^2.0.15
+  permission_handler: ^11.0.0
+  google_sign_in: ^6.1.5
+  flutter:
+    sdk: flutter
+  carousel_slider: ^4.2.1
+  geolocator: ^10.0.1
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/Logo.png
+    - assets/images/flag.png
+    - assets/images/chrome.jpeg
+    - assets/images/facebook.png
+    - assets/images/google.png
+    - assets/images/meat.png
+    - assets/images/salon.png
+    - assets/images/meat1.png
+    - assets/images/meat2.jpeg
+    - assets/images/meat3.jpeg
+    - assets/images/chicken.png
+    - assets/images/chicken1.png
+    - assets/images/mutton.png
+    - assets/images/fish.jpeg
+    - assets/images/prawns.jpeg
+    - assets/Images/Credit.png
+    - assets/Images/debit.png
+    - assets/Images/upi.png
+    - assets/Images/hair1.png
+    - assets/Images/hair2.png
+    - assets/Images/pic2.png
+    - assets/Images/pic1.png
+
+# 👇 MOVE flutter_icons TO THE ROOT LEVEL
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
