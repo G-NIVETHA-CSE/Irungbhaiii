@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'spa_page.dart';
 import 'meatpage.dart';
+import 'history.dart';
+import 'profile.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,7 +29,9 @@ class _HomePageState extends State<HomePage> {
   List<String> filteredShops = [];
   List<String> filteredTimings = [];
   TextEditingController searchController = TextEditingController();
+  TextEditingController addressController = TextEditingController();
   int _selectedIndex = 1; // Default to Home tab
+  String _userAddress = 'Address'; // Default address text
 
   @override
   void initState() {
@@ -59,12 +63,14 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _selectedIndex = index;
     });
-    // You can add navigation to other pages when tabs are tapped
-    // For now, we'll just update the selected index
+
     if (index == 0) {
-      // Show SnackBar for Order History (functionality to be added later)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Order History feature coming soon!")),
+      // Navigate to Order History page
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HistoryPage(),
+        ),
       );
     } else if (index == 1) {
       // Navigate to MeatPage again (reload the page)
@@ -75,16 +81,68 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     } else if (index == 2) {
-      // Show SnackBar for Profile
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profile feature coming soon!")),
+      // Navigate to Profile page
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const ProfilePage(),
+        ),
       );
     }
+  }
+
+  // Show address dialog when the user taps on the address
+  void _showAddressDialog() {
+    // Pre-fill with current address if it's not the default
+    if (_userAddress != 'Enter your address') {
+      addressController.text = _userAddress;
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Enter Your Address'),
+          content: TextField(
+            controller: addressController,
+            decoration: const InputDecoration(
+              hintText: 'Type your address here',
+              border: OutlineInputBorder(),
+            ),
+            maxLines: 2,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  // Update the address if input is not empty
+                  if (addressController.text.trim().isNotEmpty) {
+                    _userAddress = addressController.text.trim();
+                  }
+                });
+                Navigator.pop(context); // Close dialog
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.pink,
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   void dispose() {
     searchController.dispose();
+    addressController.dispose();
     super.dispose();
   }
 
@@ -109,30 +167,39 @@ class _HomePageState extends State<HomePage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (context) => const MeatSpaPage()),
-                            );
-                          },
-                          child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _showAddressDialog,
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const MeatSpaPage()),
+                                );
+                              },
+                              child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                            ),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.location_on, size: 24, color: Colors.red),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                _userAddress,
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 10),
-                        const Icon(Icons.location_on, size: 24, color: Colors.red),
-                        const SizedBox(width: 5),
-                        const Text(
-                          "Address",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-                        ),
-                      ],
+                      ),
                     ),
-
+                    const SizedBox(width: 10),
                     // 🔍 Search Bar with filtering
                     Container(
-                      width: 150,
+                      width: 200,
                       height: 40,
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -177,7 +244,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 10),
 
-              // 🧾 Filtered List
+              //  Filtered List
               Expanded(
                 child: filteredShops.isEmpty
                     ? const Center(
@@ -217,9 +284,9 @@ class _HomePageState extends State<HomePage> {
                           leading: ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: Image.asset(
-                              'assets/images/chicken.png',
+                              'assets/images/hen.png',
                               width: 50,
-                              height: 50,
+                              height: 100,
                               fit: BoxFit.cover,
                             ),
                           ),
@@ -228,7 +295,7 @@ class _HomePageState extends State<HomePage> {
                             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
                           ),
                           subtitle: Text(
-                            "Hours: ${filteredTimings[index]}",
+                            "Open: ${filteredTimings[index]}",
                             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                           ),
                           trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 18),

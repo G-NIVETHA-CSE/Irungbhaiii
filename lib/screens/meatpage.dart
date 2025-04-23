@@ -3,6 +3,8 @@ import 'slot.dart';
 import 'payment.dart';
 import 'order.dart';
 import 'home.dart';
+import 'history.dart'; // Add this import
+import 'profile.dart';
 
 class MeatPage extends StatefulWidget {
   final String shopName;
@@ -29,22 +31,28 @@ class _MeatPageState extends State<MeatPage> {
     });
 
     if (index == 0) {
-      // Show SnackBar for Order History (functionality to be added later)
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Order History feature coming soon!")),
+      // Navigate to Order History page
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const HistoryPage(),
+        ),
       );
     } else if (index == 1) {
-      // Navigate to MeatPage again (reload the page)
+      // Navigate to HomePage
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => const HomePage(),
-          ),
+        ),
       );
     } else if (index == 2) {
       // Show SnackBar for Profile
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profile feature coming soon!")),
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+          builder: (context) => const ProfilePage(),
+    ),
       );
     }
   }
@@ -56,7 +64,7 @@ class _MeatPageState extends State<MeatPage> {
         "name": "Broiler Chicken",
         "price": 450.0,
         "priceText": "Rs. 450 per (250g)",
-        "image": "assets/images/chicken1.png"
+        "image": "assets/images/chicken.png"
       },
       {
         "name": "Mutton",
@@ -149,7 +157,7 @@ class _MeatPageState extends State<MeatPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.asset('assets/images/meat2.jpeg', height: 200, width: double.infinity, fit: BoxFit.cover),
+                  child: Image.asset('assets/images/mutton1.png', height: 200, width: double.infinity, fit: BoxFit.cover),
                 ),
               ),
               const Padding(

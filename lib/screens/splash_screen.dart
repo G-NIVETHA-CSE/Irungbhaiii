@@ -36,13 +36,13 @@ class SplashScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      SizedBox(height: 50),
+                      SizedBox(height: 10),
                       Image.asset(
                         'assets/images/Logo.png',
                         width: screenWidth * 0.8,
                         fit: BoxFit.contain,
                       ),
-                      SizedBox(height: 50),
+                      SizedBox(height: 60),
                       ElevatedButton(
                         onPressed: () {
                           // Navigate to SignUpScreen

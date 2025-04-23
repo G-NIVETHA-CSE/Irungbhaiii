@@ -3,15 +3,20 @@ import 'dart:io';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:intl/intl.dart';
+import 'dart:async';
 import 'meatpage.dart';
 import 'payment.dart';
+import 'order_model.dart';
 
 class OrderPage extends StatefulWidget {
   final List<Map<String, dynamic>> initialCart;
+  final double totalOrderAmount;
 
   const OrderPage({
     super.key,
     required this.initialCart,
+    this.totalOrderAmount = 0.0,
   });
 
   @override
@@ -20,20 +25,48 @@ class OrderPage extends StatefulWidget {
 
 class _OrderPageState extends State<OrderPage> {
   late List<Map<String, dynamic>> cartItems;
+  late double totalAmount;
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
+  final FlutterSoundPlayer _player = FlutterSoundPlayer();
   bool _isRecorderInitialized = false;
-  int? _recordingItemIndex;
+  bool _isPlayerInitialized = false;
+  bool _isPlaying = false;
+  String? _voiceNotePath;
+  int? _voiceNoteDuration;
+  DateTime? _voiceNoteDate;
+
+  // For message input controller
+  final TextEditingController _messageController = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
+  String? _orderDescription;
+  DateTime? _messageTime;
+
+  // For WhatsApp-like recording animation
+  Timer? _recordingTimer;
+  int _recordingDuration = 0;
+  bool _showCancelSlider = false;
+  bool _isRecording = false;
+  double _cancelSlidePosition = 0.0;
+
+  // For emoji reactions to descriptions
+  List<String> emojiReactions = ['👍', '❤️', '😊', '😮', '😢', '🙏'];
 
   @override
   void initState() {
     super.initState();
     cartItems = List.from(widget.initialCart);
+    totalAmount = widget.totalOrderAmount;
     _initRecorder();
+    _initPlayer();
   }
 
   @override
   void dispose() {
     _recorder.closeRecorder();
+    _player.closePlayer();
+    _recordingTimer?.cancel();
+    _messageController.dispose();
+    _messageFocusNode.dispose();
     super.dispose();
   }
 
@@ -47,108 +80,166 @@ class _OrderPageState extends State<OrderPage> {
     _isRecorderInitialized = true;
   }
 
-  Future<void> _startRecording(int index) async {
+  Future<void> _initPlayer() async {
+    await _player.openPlayer();
+    _isPlayerInitialized = true;
+  }
+
+  String _formatDuration(int seconds) {
+    int minutes = seconds ~/ 60;
+    int remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _startRecording() async {
     if (!_isRecorderInitialized) return;
 
     Directory tempDir = await getTemporaryDirectory();
-    String path = '${tempDir.path}/voice_note_$index.aac';
+    String path = '${tempDir.path}/voice_note_order.aac';
 
     await _recorder.startRecorder(
       toFile: path,
       codec: Codec.aacADTS,
     );
 
+    // Start timer for recording duration (WhatsApp-like)
+    _recordingDuration = 0;
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        _recordingDuration++;
+      });
+    });
+
     setState(() {
-      _recordingItemIndex = index;
+      _isRecording = true;
+      _showCancelSlider = true;
+      _cancelSlidePosition = 0.0;
     });
   }
 
-  Future<void> _stopRecording(int index) async {
+  Future<void> _stopRecording({bool cancel = false}) async {
     if (!_isRecorderInitialized) return;
 
+    _recordingTimer?.cancel();
     String? path = await _recorder.stopRecorder();
 
-    if (path != null) {
+    setState(() {
+      if (!cancel && path != null) {
+        _voiceNotePath = path;
+        _voiceNoteDuration = _recordingDuration;
+        _voiceNoteDate = DateTime.now();
+      }
+      _isRecording = false;
+      _showCancelSlider = false;
+    });
+  }
+
+  Future<void> _playVoiceNote(String path) async {
+    if (!_isPlayerInitialized) return;
+
+    // Stop if already playing
+    if (_isPlaying) {
+      await _player.stopPlayer();
       setState(() {
-        cartItems[index]['voiceNote'] = path;
-        _recordingItemIndex = null;
+        _isPlaying = false;
       });
+      return;
     }
-  }
 
-  void _toggleRecording(int index) async {
-    if (_recordingItemIndex == index) {
-      await _stopRecording(index);
-    } else {
-      await _startRecording(index);
-    }
-  }
+    setState(() {
+      _isPlaying = true;
+    });
 
-  void _playVoiceNote(String path) async {
-    FlutterSoundPlayer player = FlutterSoundPlayer();
-    await player.openPlayer();
-    await player.startPlayer(
+    await _player.startPlayer(
       fromURI: path,
       codec: Codec.aacADTS,
       whenFinished: () {
-        player.closePlayer();
+        setState(() {
+          _isPlaying = false;
+        });
       },
     );
   }
 
-  void _addDescription(int index) {
-    TextEditingController controller = TextEditingController(
-      text: cartItems[index]['description'] ?? '',
-    );
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Special Instructions'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: 'Add special cutting instructions or preferences...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                cartItems[index]['description'] = controller.text;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+  void _sendMessage() {
+    final message = _messageController.text.trim();
+    if (message.isNotEmpty) {
+      setState(() {
+        _orderDescription = message;
+        _messageTime = DateTime.now();
+        _messageController.clear();
+      });
+    }
   }
 
-  double calculateTotalAmount() {
-    return cartItems.fold(0, (sum, item) {
-      double itemPrice = item['price'] ?? 0.0;
-      return sum + itemPrice;
-    });
+  void _showEmojiPicker() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          height: 250,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Add emoji",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 6,
+                    childAspectRatio: 1,
+                  ),
+                  itemCount: emojiReactions.length,
+                  itemBuilder: (context, i) {
+                    return InkWell(
+                      onTap: () {
+                        _messageController.text += emojiReactions[i];
+                        _messageController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _messageController.text.length),
+                        );
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          emojiReactions[i],
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void removeItem(int index) {
     setState(() {
+      double itemPrice = cartItems[index]['totalPrice'] ?? 0.0;
+      totalAmount -= itemPrice;
       cartItems.removeAt(index);
     });
   }
 
+  String _formatMessageTime(DateTime time) {
+    return DateFormat('h:mm a').format(time);
+  }
+
   @override
   Widget build(BuildContext context) {
-    double totalAmount = calculateTotalAmount();
-
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -179,6 +270,7 @@ class _OrderPageState extends State<OrderPage> {
                 ),
               ),
 
+              // Empty cart message
               cartItems.isEmpty
                   ? Expanded(
                 child: Center(
@@ -200,127 +292,326 @@ class _OrderPageState extends State<OrderPage> {
                 ),
               )
                   : Expanded(
-                child: ListView.builder(
-                  itemCount: cartItems.length,
-                  itemBuilder: (context, index) {
-                    var item = cartItems[index];
-                    double totalItemPrice = item["price"] ?? 0.0;
-                    bool hasDescription = item['description'] != null && item['description'].isNotEmpty;
-                    bool hasVoiceNote = item['voiceNote'] != null;
-
-                    return Container(
+                child: Column(
+                  children: [
+                    // Cart items in a single container
+                    Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: Colors.pink[50],
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(color: Colors.pink.shade200),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ListTile(
-                            leading: ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.asset(item["image"] ?? "assets/images/chicken.png", width: 50, height: 50, fit: BoxFit.cover),
-                            ),
-                            title: Text(
-                              item["name"] ?? "Unknown Item",
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-                            ),
-                            subtitle: Text(
-                              "Weight: ${item["weight"]}, Time: ${item["time"]}",
-                              style: const TextStyle(color: Colors.black87),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => removeItem(index),
-                            ),
-                          ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: cartItems.length,
+                        separatorBuilder: (context, index) => Divider(color: Colors.pink.shade200),
+                        itemBuilder: (context, index) {
+                          var item = cartItems[index];
+                          double totalItemPrice = item["totalPrice"] ?? 0.0;
 
-                          if (hasDescription)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-                              child: Container(
-                                padding: const EdgeInsets.all(8.0),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8.0),
-                                  border: Border.all(color: Colors.grey.shade300),
+                          return Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Image
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.asset(
+                                    item["image"] ?? "assets/images/chicken.png",
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                const SizedBox(width: 12),
+
+                                // Item details - expanded to take available space
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item["name"] ?? "Unknown Item",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.red,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Weight: ${item["weight"]}, Time: ${item["time"]}",
+                                        style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // Price and delete button
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    const Text(
-                                      'Special Instructions:',
-                                      style: TextStyle(
+                                    Text(
+                                      "Rs. ${totalItemPrice.toStringAsFixed(2)}",
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: Colors.grey,
+                                        fontSize: 16,
+                                        color: Colors.black87,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      item['description'],
-                                      style: const TextStyle(fontSize: 14),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Colors.red),
+                                      onPressed: () => removeItem(index),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      iconSize: 22,
                                     ),
                                   ],
                                 ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    // Order note section (WhatsApp style) - Now per order, not per item
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECE5DD), // WhatsApp background color
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Add a note to your order",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Text message bubble (if exists)
+                          if (_orderDescription != null)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCF8C6), // WhatsApp message bubble color
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    _orderDescription!,
+                                    style: const TextStyle(fontSize: 15),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    _messageTime != null ? _formatMessageTime(_messageTime!) : '',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
 
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
+                          // Voice message bubble (if exists)
+                          if (_voiceNotePath != null)
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCF8C6), // WhatsApp message bubble color
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
                                 children: [
-                                  IconButton(
-                                    icon: Icon(
-                                      hasDescription ? Icons.edit : Icons.add_comment,
-                                      color: Colors.blue,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => _addDescription(index),
-                                    tooltip: 'Add special instructions',
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      _recordingItemIndex == index ? Icons.stop : Icons.mic,
-                                      color: _recordingItemIndex == index ? Colors.red : Colors.blue,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => _toggleRecording(index),
-                                    tooltip: _recordingItemIndex == index ? 'Stop recording' : 'Record voice note',
-                                  ),
-                                  if (hasVoiceNote)
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.play_arrow,
-                                        color: Colors.green,
+                                  InkWell(
+                                    onTap: () {
+                                      if (_voiceNotePath != null) {
+                                        _playVoiceNote(_voiceNotePath!);
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF00A884), // WhatsApp green
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        _isPlaying ? Icons.stop : Icons.play_arrow,
+                                        color: Colors.white,
                                         size: 20,
                                       ),
-                                      onPressed: () => _playVoiceNote(item['voiceNote']),
-                                      tooltip: 'Play voice note',
                                     ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          height: 30,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(20),
+                                            child: LinearProgressIndicator(
+                                              value: _isPlaying ? 0.5 : 0, // Replace with actual progress
+                                              backgroundColor: Colors.grey[300],
+                                              valueColor: AlwaysStoppedAnimation<Color>(
+                                                _isPlaying ? Colors.blue : Colors.grey[400]!,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        if (_voiceNoteDuration != null)
+                                          Text(
+                                            _formatDuration(_voiceNoteDuration!),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _voiceNoteDate != null ? _formatMessageTime(_voiceNoteDate!) : '',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                                 ],
                               ),
-                              Padding(
-                                padding: const EdgeInsets.only(right: 16.0),
-                                child: Text(
-                                  "Rs. ${totalItemPrice.toStringAsFixed(2)}",
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: Colors.black87,
+                            ),
+
+                          // WhatsApp-style input field
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(25),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Row(
+                              children: [
+                                // Emoji button
+                                IconButton(
+                                  icon: const Icon(Icons.emoji_emotions, color: Color(0xFF00A884)),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  iconSize: 24,
+                                  onPressed: () => _showEmojiPicker(),
+                                ),
+                                const SizedBox(width: 8),
+
+                                // Text input field
+                                Expanded(
+                                  child: TextField(
+                                    controller: _messageController,
+                                    focusNode: _messageFocusNode,
+                                    decoration: const InputDecoration(
+                                      hintText: "Type a message",
+                                      hintStyle: TextStyle(color: Colors.grey),
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                    ),
+                                    textCapitalization: TextCapitalization.sentences,
                                   ),
                                 ),
-                              ),
-                            ],
+
+                                // Send button
+                                IconButton(
+                                  icon: const Icon(Icons.send, color: Color(0xFF00A884)),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  iconSize: 24,
+                                  onPressed: () => _sendMessage(),
+                                ),
+                                const SizedBox(width: 4),
+
+                                // Voice recording button
+                                GestureDetector(
+                                  onLongPress: () => _startRecording(),
+                                  onLongPressEnd: (_) {
+                                    if (_isRecording) {
+                                      _stopRecording(cancel: _cancelSlidePosition > 100);
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: _isRecording
+                                          ? Colors.red
+                                          : const Color(0xFF00A884), // WhatsApp green
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      _isRecording ? Icons.mic_off : Icons.mic,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+
+                          // Recording slider (appears when recording)
+                          if (_showCancelSlider && _isRecording)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.arrow_back, color: Colors.red[700], size: 16),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    "Slide to cancel",
+                                    style: TextStyle(color: Colors.red, fontSize: 12),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Icon(Icons.mic, color: Colors.red[700], size: 16),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _formatDuration(_recordingDuration),
+                                          style: TextStyle(color: Colors.red[700], fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
-                    );
-                  },
+                    ),
+
+                    const Spacer(),
+                  ],
                 ),
               ),
 
@@ -404,16 +695,17 @@ class _OrderPageState extends State<OrderPage> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: cartItems.isEmpty ? null : () {
-                          double orderAmount = totalAmount;
-                          double taxes = totalAmount * 0.05;
-
+                        onPressed: cartItems.isEmpty
+                            ? null
+                            : () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (context) => PaymentPage(
-                                  orderAmount: orderAmount,
-                                  taxes: taxes
+                                orderAmount: totalAmount,
+                                cartItems: cartItems,
+                                description: _orderDescription,
+                                voiceNotePath: _voiceNotePath,
                               ),
                             ),
                           );

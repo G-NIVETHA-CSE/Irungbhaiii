@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'order.dart';
+import 'time.dart';
 
 class SlotPage extends StatefulWidget {
   final String? selectedItemName;
@@ -21,7 +21,6 @@ class SlotPage extends StatefulWidget {
 }
 
 class _SlotPageState extends State<SlotPage> {
-  String? selectedTime;
   final TextEditingController weightController = TextEditingController();
   final TextEditingController unitController = TextEditingController(text: 'kg'); // Default unit
 
@@ -31,19 +30,17 @@ class _SlotPageState extends State<SlotPage> {
   int _currentPage = 1000;
 
   List<String> imagePaths = [
-    'assets/images/chicken.png',
-    'assets/images/meat2.jpeg',
-    'assets/images/fish.jpeg',
+    'assets/images/fish1.png',
     'assets/images/meat1.png',
+    'assets/images/prawns1.png',
+    'assets/images/mutton1.png',
   ];
 
-  // Quick weight selection options
+  // Quick weight selection options with adjusted default options
   final List<Map<String, dynamic>> quickWeightOptions = [
-    {'value': '0.25', 'unit': 'kg', 'label': '250g'},
     {'value': '0.5', 'unit': 'kg', 'label': '500g'},
-    {'value': '0.75', 'unit': 'kg', 'label': '750g'},
     {'value': '1', 'unit': 'kg', 'label': '1kg'},
-    {'value': '5', 'unit': 'kg', 'label': '5kg'},
+    {'value': '2', 'unit': 'kg', 'label': '2kg'},
   ];
 
   @override
@@ -101,52 +98,36 @@ class _SlotPageState extends State<SlotPage> {
   }
 
   void _confirmSelection() {
-    if (selectedTime != null && weightController.text.isNotEmpty) {
+    if (weightController.text.isNotEmpty) {
       // Calculate price based on weight and unit
       double totalPrice = calculatePrice();
 
       // Create weight string with unit
       String weightWithUnit = "${weightController.text} ${unitController.text}";
 
-      // Create a new list that includes previous items plus the new one
-      List<Map<String, dynamic>> updatedCart = List.from(widget.cartItems);
-
-      // Add new item to cart
-      updatedCart.add({
-        "name": widget.selectedItemName ?? "Unknown Item",
-        "image": widget.selectedItemImage ?? "assets/images/chicken.png",
-        "weight": weightWithUnit,
-        "time": selectedTime,
-        "price": totalPrice,
-      });
-
+      // Navigate to time selection page
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => OrderPage(
-            initialCart: updatedCart,
+          builder: (context) => TimePage(
+            selectedItemName: widget.selectedItemName,
+            selectedItemImage: widget.selectedItemImage,
+            selectedItemPrice: widget.selectedItemPrice,
+            selectedWeight: weightWithUnit,
+            totalPrice: totalPrice,
+            cartItems: widget.cartItems,
           ),
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a time slot and enter weight")),
+        const SnackBar(content: Text("Please enter weight")),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    List<String> timeSlots = [
-      "5:00 am", "5:15 am", "5:30 am", "5:45 am",
-      "6:00 am", "6:15 am", "6:30 am", "6:45 am",
-      "7:00 am", "7:15 am", "7:30 am", "7:45 am",
-      "8:00 am", "8:15 am", "8:30 am", "8:45 am",
-      "9:00 am", "9:15 am", "9:30 am", "9:45 am",
-      "10:00 am", "10:15 am", "10:30 am", "10:45 am",
-      "11:00 am"
-    ];
-
     List<String> weightUnits = ["kg", "g"];
 
     return Scaffold(
@@ -174,7 +155,7 @@ class _SlotPageState extends State<SlotPage> {
                     ),
                     const SizedBox(width: 10),
                     const Text(
-                      "Select Time Slot",
+                      "Select Weight",
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
                     ),
                   ],
@@ -231,13 +212,13 @@ class _SlotPageState extends State<SlotPage> {
 
               const SizedBox(height: 10),
 
-              // Auto-scrolling image carousel
+              // Auto-scrolling image carousel with responsive height
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: SizedBox(
-                    height: 160,
+                  child: AspectRatio(
+                    aspectRatio: 16/9, // Maintain aspect ratio for images
                     child: PageView.builder(
                       controller: _pageController,
                       onPageChanged: (index) {
@@ -245,9 +226,12 @@ class _SlotPageState extends State<SlotPage> {
                       },
                       itemBuilder: (context, index) {
                         final actualIndex = index % imagePaths.length;
-                        return Image.asset(
-                          imagePaths[actualIndex],
-                          fit: BoxFit.cover,
+                        return Container(
+                          color: Colors.grey[200], // Background color for images that don't fill space
+                          child: Image.asset(
+                            imagePaths[actualIndex],
+                            fit: BoxFit.cover,
+                          ),
                         );
                       },
                     ),
@@ -255,98 +239,65 @@ class _SlotPageState extends State<SlotPage> {
                 ),
               ),
 
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Text(
-                  "Available: 5:00 AM - 11:00 AM",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  "Time",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
-                ),
-              ),
+              const SizedBox(height: 16),
+
+              // Weight selection section
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.pink[50],
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.pink.shade200),
-                  ),
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: selectedTime,
-                    hint: const Text("Select Time", style: TextStyle(color: Colors.black, fontSize: 16)),
-                    underline: Container(),
-                    icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-                    items: timeSlots.map((time) => DropdownMenuItem(value: time, child: Text(time))).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedTime = value;
-                      });
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  "Weight",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      flex: 7,
-                      child: TextField(
-                        controller: weightController,
-                        decoration: InputDecoration(
-                          labelText: "Weight",
-                          hintText: "Enter weight",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          filled: true,
-                          fillColor: Colors.pink[50],
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
+                    const Text(
+                      "Weight",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 3,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.pink[50],
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.pink.shade200),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            isExpanded: true,
-                            value: unitController.text,
-                            icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-                            items: weightUnits.map((unit) => DropdownMenuItem(value: unit, child: Text(unit))).toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                setState(() {
-                                  unitController.text = value;
-                                });
-                              }
-                            },
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 7,
+                          child: TextField(
+                            controller: weightController,
+                            decoration: InputDecoration(
+                              labelText: "Weight",
+                              hintText: "Enter weight",
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              filled: true,
+                              fillColor: Colors.pink[50],
+                            ),
+                            keyboardType: TextInputType.number,
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 3,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.pink[50],
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.pink.shade200),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                value: unitController.text,
+                                icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+                                items: weightUnits.map((unit) => DropdownMenuItem(value: unit, child: Text(unit))).toList(),
+                                onChanged: (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      unitController.text = value;
+                                    });
+                                  }
+                                },
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -354,20 +305,19 @@ class _SlotPageState extends State<SlotPage> {
 
               // Quick weight selection options
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Wrap(
                   spacing: 8,
                   children: quickWeightOptions.map((option) {
+                    bool isSelected = weightController.text == option['value'] &&
+                        unitController.text == option['unit'];
                     return InkWell(
                       onTap: () => _setQuickWeight(option['value'], option['unit']),
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: (weightController.text == option['value'] &&
-                              unitController.text == option['unit'])
-                              ? Colors.pink.shade300
-                              : Colors.pink.shade100,
+                          color: isSelected ? Colors.pink.shade300 : Colors.pink.shade100,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: Colors.pink.shade200),
                         ),
@@ -375,10 +325,7 @@ class _SlotPageState extends State<SlotPage> {
                           option['label'],
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: (weightController.text == option['value'] &&
-                                unitController.text == option['unit'])
-                                ? Colors.white
-                                : Colors.black87,
+                            color: isSelected ? Colors.white : Colors.black87,
                           ),
                         ),
                       ),
@@ -395,7 +342,10 @@ class _SlotPageState extends State<SlotPage> {
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green),
                   ),
                 ),
+
               const Spacer(),
+
+              // Confirm button
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: SizedBox(
