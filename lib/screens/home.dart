@@ -3,6 +3,8 @@ import 'spa_page.dart';
 import 'meatpage.dart';
 import 'history.dart';
 import 'profile.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -32,6 +34,82 @@ class _HomePageState extends State<HomePage> {
   TextEditingController addressController = TextEditingController();
   int _selectedIndex = 1; // Default to Home tab
   String _userAddress = 'Address'; // Default address text
+  bool _isLocationVisible = false; // To control the visibility of location details
+  String _detailedLocation = ''; // To store detailed location information
+  bool _isLoadingLocation = false; // To show loading indicator
+
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+      _isLocationVisible = true;
+    });
+
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Check if location services are enabled
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Location services are not enabled
+      setState(() {
+        _detailedLocation = 'Location services are disabled. Please enable them.';
+        _isLoadingLocation = false;
+      });
+      await Geolocator.openLocationSettings();
+      return;
+    }
+
+    // Check location permissions
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        // Permissions are denied
+        setState(() {
+          _detailedLocation = 'Location permission denied.';
+          _isLoadingLocation = false;
+        });
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Permissions are permanently denied
+      setState(() {
+        _detailedLocation = 'Location permissions are permanently denied. Please enable in settings.';
+        _isLoadingLocation = false;
+      });
+      return;
+    }
+
+    try {
+      // Get the current position
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high
+      );
+
+      // Convert coordinates into a human-readable address
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+
+        setState(() {
+          _userAddress = '${place.locality}, ${place.administrativeArea}';
+          _detailedLocation = '${place.street}, ${place.subLocality}, ${place.locality}, ${place.postalCode}, ${place.country}';
+          _isLoadingLocation = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _detailedLocation = 'Error fetching location: $e';
+        _isLoadingLocation = false;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -91,52 +169,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Show address dialog when the user taps on the address
-  void _showAddressDialog() {
-    // Pre-fill with current address if it's not the default
-    if (_userAddress != 'Enter your address') {
-      addressController.text = _userAddress;
+  void _toggleLocationVisibility() {
+    if (!_isLocationVisible) {
+      _getCurrentLocation();
+    } else {
+      setState(() {
+        _isLocationVisible = false;
+      });
     }
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Enter Your Address'),
-          content: TextField(
-            controller: addressController,
-            decoration: const InputDecoration(
-              hintText: 'Type your address here',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 2,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  // Update the address if input is not empty
-                  if (addressController.text.trim().isNotEmpty) {
-                    _userAddress = addressController.text.trim();
-                  }
-                });
-                Navigator.pop(context); // Close dialog
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pink,
-              ),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -164,69 +204,159 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Column(
                   children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: _showAddressDialog,
-                        child: Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (context) => const MeatSpaPage()),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: _toggleLocationVisibility,
+                            child: Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => const MeatSpaPage()),
+                                    );
+                                  },
+                                  child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                                ),
+                                const SizedBox(width: 10),
+                                const Icon(Icons.location_on, size: 24, color: Colors.red),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    _userAddress,
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // 🔍 Search Bar with filtering
+                        Container(
+                          width: 200,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 5)],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.search, color: Colors.grey),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: TextField(
+                                    controller: searchController,
+                                    decoration: const InputDecoration(
+                                      border: InputBorder.none,
+                                      hintText: "Search",
+                                      hintStyle: TextStyle(color: Colors.grey),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Location details section (appears below address)
+                  if (_isLocationVisible)
+            Padding(
+        padding: const EdgeInsets.only(top: 5, left: 40),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: _isLoadingLocation
+              ? const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.pink),
+                ),
+              ),
+              SizedBox(width: 10),
+              Text('Fetching your location...'),
+            ],
+          )
+              : Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _detailedLocation,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit, size: 16),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                              onPressed: () {
+                                // Show edit dialog
+                                showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    addressController.text = _detailedLocation;
+                                    return AlertDialog(
+                                      title: const Text('Edit Your Address'),
+                                      content: TextField(
+                                        controller: addressController,
+                                        decoration: const InputDecoration(
+                                          hintText: 'Type your address here',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        maxLines: 2,
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          child: const Text('Cancel'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              if (addressController.text.trim().isNotEmpty) {
+                                                _detailedLocation = addressController.text.trim();
+                                              }
+                                            });
+                                            Navigator.pop(context);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.pink,
+                                          ),
+                                          child: const Text('Save'),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 );
                               },
-                              child: const Icon(Icons.arrow_back, size: 24, color: Colors.black),
-                            ),
-                            const SizedBox(width: 10),
-                            const Icon(Icons.location_on, size: 24, color: Colors.red),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                _userAddress,
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    // 🔍 Search Bar with filtering
-                    Container(
-                      width: 200,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 5)],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.search, color: Colors.grey),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: TextField(
-                                controller: searchController,
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  hintText: "Search",
-                                  hintStyle: TextStyle(color: Colors.grey),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+            ),
                   ],
+
                 ),
               ),
               const SizedBox(height: 10),
@@ -272,8 +402,8 @@ class _HomePageState extends State<HomePage> {
                           color: Colors.pink[50],
                           borderRadius: BorderRadius.circular(15),
                           border: Border.all(color: Colors.pink.shade200),
-                          boxShadow: [
-                            const BoxShadow(
+                          boxShadow: const [
+                            BoxShadow(
                               color: Colors.black12,
                               blurRadius: 5,
                               offset: Offset(0, 3),

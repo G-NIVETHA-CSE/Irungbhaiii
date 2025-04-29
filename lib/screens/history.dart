@@ -41,6 +41,28 @@ class _HistoryPageState extends State<HistoryPage> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
+  // New helper method to calculate item price based on weight and unit
+  double _calculateItemPrice(OrderItem item) {
+    String weightStr = item.weight.trim();
+    double weightValue = 0;
+
+    if (weightStr.toLowerCase().endsWith('kg')) {
+      // Extract number part and convert kg to g
+      weightValue = double.tryParse(weightStr.toLowerCase().replaceAll('kg', '').trim()) ?? 0;
+      // Convert kg to g (1 kg = 1000 g)
+      weightValue = weightValue * 1000;
+    } else if (weightStr.toLowerCase().endsWith('g')) {
+      // Extract number part for grams
+      weightValue = double.tryParse(weightStr.toLowerCase().replaceAll('g', '').trim()) ?? 0;
+    } else {
+      // If no unit specified, assume grams
+      weightValue = double.tryParse(weightStr) ?? 0;
+    }
+
+    // Calculate price: base price (per 250g) * weight in g / 250g
+    return item.price * (weightValue / 250);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -218,7 +240,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                         ),
                         Text(
-                          "Rs. ${item.price.toStringAsFixed(2)}",
+                          "Rs. ${_calculateItemPrice(item).toStringAsFixed(2)}",
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
@@ -438,7 +460,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                       title: Text(item.name),
                       subtitle: Text("Weight: ${item.weight}"),
-                      trailing: Text("Rs. ${item.price.toStringAsFixed(2)}"),
+                      trailing: Text("Rs. ${_calculateItemPrice(item).toStringAsFixed(2)}"),
                     );
                   },
                 ),

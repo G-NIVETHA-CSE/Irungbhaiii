@@ -241,6 +241,7 @@ class _OrderPageState extends State<OrderPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false, // Prevent keyboard from pushing up the layout
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -270,10 +271,10 @@ class _OrderPageState extends State<OrderPage> {
                 ),
               ),
 
-              // Empty cart message
-              cartItems.isEmpty
-                  ? Expanded(
-                child: Center(
+              // Main content area
+              Expanded(
+                child: cartItems.isEmpty
+                    ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -289,332 +290,333 @@ class _OrderPageState extends State<OrderPage> {
                       ),
                     ],
                   ),
-                ),
-              )
-                  : Expanded(
-                child: Column(
-                  children: [
-                    // Cart items in a single container
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.pink[50],
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.pink.shade200),
-                      ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: cartItems.length,
-                        separatorBuilder: (context, index) => Divider(color: Colors.pink.shade200),
-                        itemBuilder: (context, index) {
-                          var item = cartItems[index];
-                          double totalItemPrice = item["totalPrice"] ?? 0.0;
+                )
+                    : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Cart items in a single container
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.pink[50],
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: Colors.pink.shade200),
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: cartItems.length,
+                          separatorBuilder: (context, index) => Divider(color: Colors.pink.shade200),
+                          itemBuilder: (context, index) {
+                            var item = cartItems[index];
+                            double totalItemPrice = item["totalPrice"] ?? 0.0;
 
-                          return Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // Image
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.asset(
-                                    item["image"] ?? "assets/images/chicken.png",
-                                    width: 60,
-                                    height: 60,
-                                    fit: BoxFit.cover,
+                            return Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  // Image
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Image.asset(
+                                      item["image"] ?? "assets/images/chicken.png",
+                                      width: 60,
+                                      height: 60,
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
+                                  const SizedBox(width: 12),
 
-                                // Item details - expanded to take available space
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  // Item details - expanded to take available space
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item["name"] ?? "Unknown Item",
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.red,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          "Weight: ${item["weight"]}, Time: ${item["time"]}",
+                                          style: const TextStyle(
+                                            color: Colors.black87,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Price and delete button
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        item["name"] ?? "Unknown Item",
+                                        "Rs. ${totalItemPrice.toStringAsFixed(2)}",
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.red,
                                           fontSize: 16,
+                                          color: Colors.black87,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        "Weight: ${item["weight"]}, Time: ${item["time"]}",
-                                        style: const TextStyle(
-                                          color: Colors.black87,
-                                          fontSize: 14,
-                                        ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        onPressed: () => removeItem(index),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        iconSize: 22,
                                       ),
                                     ],
                                   ),
-                                ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
 
-                                // Price and delete button
-                                Column(
+                      // Order note section (WhatsApp style) - Now per order, not per item
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFECE5DD), // WhatsApp background color
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Add a note to your order",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Text message bubble (if exists)
+                            if (_orderDescription != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCF8C6), // WhatsApp message bubble color
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      "Rs. ${totalItemPrice.toStringAsFixed(2)}",
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                        color: Colors.black87,
-                                      ),
+                                      _orderDescription!,
+                                      style: const TextStyle(fontSize: 15),
                                     ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () => removeItem(index),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      iconSize: 22,
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      _messageTime != null ? _formatMessageTime(_messageTime!) : '',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                    // Order note section (WhatsApp style) - Now per order, not per item
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECE5DD), // WhatsApp background color
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "Add a note to your order",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-
-                          // Text message bubble (if exists)
-                          if (_orderDescription != null)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDCF8C6), // WhatsApp message bubble color
-                                borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    _orderDescription!,
-                                    style: const TextStyle(fontSize: 15),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    _messageTime != null ? _formatMessageTime(_messageTime!) : '',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
+
+                            // Voice message bubble (if exists)
+                            if (_voiceNotePath != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCF8C6), // WhatsApp message bubble color
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () {
+                                        if (_voiceNotePath != null) {
+                                          _playVoiceNote(_voiceNotePath!);
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF00A884), // WhatsApp green
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          _isPlaying ? Icons.stop : Icons.play_arrow,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Container(
+                                            height: 30,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(20),
+                                              child: LinearProgressIndicator(
+                                                value: _isPlaying ? 0.5 : 0, // Replace with actual progress
+                                                backgroundColor: Colors.grey[300],
+                                                valueColor: AlwaysStoppedAnimation<Color>(
+                                                  _isPlaying ? Colors.blue : Colors.grey[400]!,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 5),
+                                          if (_voiceNoteDuration != null)
+                                            Text(
+                                              _formatDuration(_voiceNoteDuration!),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      _voiceNoteDate != null ? _formatMessageTime(_voiceNoteDate!) : '',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
 
-                          // Voice message bubble (if exists)
-                          if (_voiceNotePath != null)
+                            // WhatsApp-style input field
                             Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFDCF8C6), // WhatsApp message bubble color
-                                borderRadius: BorderRadius.circular(8),
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(25),
+                                border: Border.all(color: Colors.grey.shade300),
                               ),
                               child: Row(
                                 children: [
-                                  InkWell(
-                                    onTap: () {
-                                      if (_voiceNotePath != null) {
-                                        _playVoiceNote(_voiceNotePath!);
+                                  // Emoji button
+                                  IconButton(
+                                    icon: const Icon(Icons.emoji_emotions, color: Color(0xFF00A884)),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    iconSize: 24,
+                                    onPressed: () => _showEmojiPicker(),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // Text input field
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _messageController,
+                                      focusNode: _messageFocusNode,
+                                      decoration: const InputDecoration(
+                                        hintText: "Type a message",
+                                        hintStyle: TextStyle(color: Colors.grey),
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                                      ),
+                                      textCapitalization: TextCapitalization.sentences,
+                                    ),
+                                  ),
+
+                                  // Send button
+                                  IconButton(
+                                    icon: const Icon(Icons.send, color: Color(0xFF00A884)),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    iconSize: 24,
+                                    onPressed: () => _sendMessage(),
+                                  ),
+                                  const SizedBox(width: 4),
+
+                                  // Voice recording button
+                                  GestureDetector(
+                                    onLongPress: () => _startRecording(),
+                                    onLongPressEnd: (_) {
+                                      if (_isRecording) {
+                                        _stopRecording(cancel: _cancelSlidePosition > 100);
                                       }
                                     },
                                     child: Container(
                                       padding: const EdgeInsets.all(8),
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF00A884), // WhatsApp green
+                                      decoration: BoxDecoration(
+                                        color: _isRecording
+                                            ? Colors.red
+                                            : const Color(0xFF00A884), // WhatsApp green
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(
-                                        _isPlaying ? Icons.stop : Icons.play_arrow,
+                                        _isRecording ? Icons.mic_off : Icons.mic,
                                         color: Colors.white,
                                         size: 20,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          height: 30,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(20),
-                                          ),
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(20),
-                                            child: LinearProgressIndicator(
-                                              value: _isPlaying ? 0.5 : 0, // Replace with actual progress
-                                              backgroundColor: Colors.grey[300],
-                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                _isPlaying ? Colors.blue : Colors.grey[400]!,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 5),
-                                        if (_voiceNoteDuration != null)
+                                ],
+                              ),
+                            ),
+
+                            // Recording slider (appears when recording)
+                            if (_showCancelSlider && _isRecording)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.arrow_back, color: Colors.red[700], size: 16),
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      "Slide to cancel",
+                                      style: TextStyle(color: Colors.red, fontSize: 12),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          Icon(Icons.mic, color: Colors.red[700], size: 16),
+                                          const SizedBox(width: 4),
                                           Text(
-                                            _formatDuration(_voiceNoteDuration!),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey[600],
-                                            ),
+                                            _formatDuration(_recordingDuration),
+                                            style: TextStyle(color: Colors.red[700], fontSize: 12),
                                           ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _voiceNoteDate != null ? _formatMessageTime(_voiceNoteDate!) : '',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-
-                          // WhatsApp-style input field
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(25),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Row(
-                              children: [
-                                // Emoji button
-                                IconButton(
-                                  icon: const Icon(Icons.emoji_emotions, color: Color(0xFF00A884)),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  iconSize: 24,
-                                  onPressed: () => _showEmojiPicker(),
-                                ),
-                                const SizedBox(width: 8),
-
-                                // Text input field
-                                Expanded(
-                                  child: TextField(
-                                    controller: _messageController,
-                                    focusNode: _messageFocusNode,
-                                    decoration: const InputDecoration(
-                                      hintText: "Type a message",
-                                      hintStyle: TextStyle(color: Colors.grey),
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                                    ),
-                                    textCapitalization: TextCapitalization.sentences,
-                                  ),
-                                ),
-
-                                // Send button
-                                IconButton(
-                                  icon: const Icon(Icons.send, color: Color(0xFF00A884)),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  iconSize: 24,
-                                  onPressed: () => _sendMessage(),
-                                ),
-                                const SizedBox(width: 4),
-
-                                // Voice recording button
-                                GestureDetector(
-                                  onLongPress: () => _startRecording(),
-                                  onLongPressEnd: (_) {
-                                    if (_isRecording) {
-                                      _stopRecording(cancel: _cancelSlidePosition > 100);
-                                    }
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: _isRecording
-                                          ? Colors.red
-                                          : const Color(0xFF00A884), // WhatsApp green
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      _isRecording ? Icons.mic_off : Icons.mic,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Recording slider (appears when recording)
-                          if (_showCancelSlider && _isRecording)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.arrow_back, color: Colors.red[700], size: 16),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    "Slide to cancel",
-                                    style: TextStyle(color: Colors.red, fontSize: 12),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Icon(Icons.mic, color: Colors.red[700], size: 16),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          _formatDuration(_recordingDuration),
-                                          style: TextStyle(color: Colors.red[700], fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-
-                    const Spacer(),
-                  ],
+                      // Add extra space at the bottom for keyboard
+                      SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 ? 300 : 0),
+                    ],
+                  ),
                 ),
               ),
 
+              // Fixed bottom section that stays at the bottom
               if (cartItems.isNotEmpty)
                 Container(
                   margin: const EdgeInsets.all(16),
