@@ -166,23 +166,54 @@ class _TimePageState extends State<TimePage> {
                   ),
                 ),
 
+
               const SizedBox(height: 30),
 
-              // Time Picker UI
+              // Time Picker UI - Enhanced with more guidance
               Center(
-                child: GestureDetector(
-                  onTap: () => _selectTime(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 40),
-                    decoration: BoxDecoration(
-                      color: Colors.pink.shade100,
-                      borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    const Text(
+                      "Delivery Time",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black87),
                     ),
-                    child: Text(
-                      formattedTime,
-                      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.red),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () => _selectTime(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 40),
+                        decoration: BoxDecoration(
+                          color: Colors.pink.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              formattedTime,
+                              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                            const SizedBox(width: 10),
+                            const Icon(Icons.access_time, color: Colors.black, size: 30),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 15),
+                    ElevatedButton.icon(
+                      onPressed: () => _selectTime(context),
+                      icon: const Icon(Icons.edit_calendar, color: Colors.white),
+                      label: const Text(
+                        "Set Time",
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade400,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
