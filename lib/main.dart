@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
-import 'screens/signup_screen.dart'; // Import your SignUpScreen // Import other screens as needed
+import 'screens/signup_screen.dart'; // Import your SignUpScreen
 import 'screens/signup_page.dart';
 void main() {
   runApp(MyApp());

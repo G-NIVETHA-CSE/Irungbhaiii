@@ -9,6 +9,7 @@ environment:
   sdk: ^3.7.0
 
 dependencies:
+  flutter_staggered_animations: ^1.1.1
   google_sign_in: ^6.2.1
   intl: ^0.18.0
   shared_preferences: ^2.2.0
@@ -50,6 +51,7 @@ flutter:
     - assets/Images/hair1.png
     - assets/Images/hair2.png
     - assets/images/mutton1.png
+    - assets/images/chicken1.png
 
 # 👇 MOVE flutter_icons TO THE ROOT LEVEL
 flutter_icons:

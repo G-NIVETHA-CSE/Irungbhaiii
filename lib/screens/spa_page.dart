@@ -1,17 +1,71 @@
 import 'package:flutter/material.dart';
 import 'signup_screen.dart';
-import 'home.dart'; // Import location page
+import 'home.dart';
 import 'home2.dart';
 
-class MeatSpaPage extends StatelessWidget {
+class MeatSpaPage extends StatefulWidget {
   const MeatSpaPage({super.key});
+
+  @override
+  State<MeatSpaPage> createState() => _MeatSpaPageState();
+}
+
+class _MeatSpaPageState extends State<MeatSpaPage> with SingleTickerProviderStateMixin {
+  // Animation controllers
+  late AnimationController _controller;
+  late Animation<double> _logoAnimation;
+  late Animation<double> _textAnimation;
+  late Animation<double> _meatAnimation;
+  late Animation<double> _salonAnimation;
+
+  bool _isMeatHovered = false;
+  bool _isSalonHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Initialize animation controller
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    // Create staggered animations with different delays
+    _logoAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+    );
+
+    _textAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
+    );
+
+    _meatAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.5, 0.9, curve: Curves.easeOut),
+    );
+
+    _salonAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.7, 1.0, curve: Curves.easeOut),
+    );
+
+    // Start the animation
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     // Get the screen size
     final screenSize = MediaQuery.of(context).size;
-
-    // Decrease the extra height from 1/2 inch to 1/4 inch in logical pixels
     final quarterInchPixels = 40.0;
 
     return Scaffold(
@@ -31,87 +85,170 @@ class MeatSpaPage extends StatelessWidget {
               ),
             ),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 80), // Add padding to make space for button
+              padding: const EdgeInsets.only(bottom: 80),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 30),
-                  Center(
-                    child: Image.asset(
-                      'assets/images/Logo.png',
-                      width: 220,
-                      height: 220,
+                  // Animated logo with fade and scale
+                  FadeTransition(
+                    opacity: _logoAnimation,
+                    child: ScaleTransition(
+                      scale: _logoAnimation,
+                      child: Image.asset(
+                        'assets/images/Logo.png',
+                        width: 220,
+                        height: 220,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Looking for',
-                    style: TextStyle(
-                      fontSize: 28,
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
+                  // Animated text with fade
+                  FadeTransition(
+                    opacity: _textAnimation,
+                    child: const Text(
+                      'Looking for',
+                      style: TextStyle(
+                        fontSize: 28,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Column(
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const HomePage(),
+                      // Meat option with animation
+                      SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.5),
+                          end: Offset.zero,
+                        ).animate(_meatAnimation),
+                        child: FadeTransition(
+                          opacity: _meatAnimation,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isMeatHovered = true;
+                              });
+
+                              // Add a small delay to show the pulse animation
+                              Future.delayed(const Duration(milliseconds: 300), () {
+                                if (mounted) {
+                                  setState(() {
+                                    _isMeatHovered = false;
+                                  });
+                                  Navigator.push(
+                                    context,
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, secondaryAnimation) => const HomePage(),
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        var begin = const Offset(1.0, 0.0);
+                                        var end = Offset.zero;
+                                        var curve = Curves.easeInOut;
+                                        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                                        return SlideTransition(
+                                          position: animation.drive(tween),
+                                          child: child,
+                                        );
+                                      },
+                                    ),
+                                  );
+                                }
+                              });
+                            },
+                            child: Column(
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  transform: _isMeatHovered ? (Matrix4.identity()..scale(1.1)) : Matrix4.identity(),
+                                  transformAlignment: Alignment.center,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(20), // Adjust the radius as needed
+                                    child: Image.asset(
+                                      'assets/images/meat.png',
+                                      width: 180,
+                                      height: 100,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 25),
+                                const Text(
+                                  'Meat',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            Center(
-                              child: Image.asset(
-                                'assets/images/meat.png',
-                                width: 160, // Increased from 140
-                                height: 160, // Increased from 140
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            const Text(
-                              'Meat',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Home2(),
+                      // Salon option with animation
+                      SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.5),
+                          end: Offset.zero,
+                        ).animate(_salonAnimation),
+                        child: FadeTransition(
+                          opacity: _salonAnimation,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isSalonHovered = true;
+                              });
+
+                              // Add a small delay to show the pulse animation
+                              Future.delayed(const Duration(milliseconds: 300), () {
+                                if (mounted) {
+                                  setState(() {
+                                    _isSalonHovered = false;
+                                  });
+                                  Navigator.push(
+                                    context,
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, secondaryAnimation) => Home2(),
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        var begin = const Offset(1.0, 0.0);
+                                        var end = Offset.zero;
+                                        var curve = Curves.easeInOut;
+                                        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                                        return SlideTransition(
+                                          position: animation.drive(tween),
+                                          child: child,
+                                        );
+                                      },
+                                    ),
+                                  );
+                                }
+                              });
+                            },
+                            child: Column(
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  transform: _isSalonHovered ? (Matrix4.identity()..scale(1.1)) : Matrix4.identity(),
+                                  transformAlignment: Alignment.center,
+                                  child: Image.asset(
+                                    'assets/images/salon.png',
+                                    width: 180,
+                                    height: 180,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                const Text(
+                                  'Salon',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 20,
+                                  ),
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            Center(
-                              child: Image.asset(
-                                'assets/images/salon.png',
-                                width: 180, // Increased from 160
-                                height: 180, // Increased from 160
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Salon',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 20,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ],
@@ -121,7 +258,7 @@ class MeatSpaPage extends StatelessWidget {
               ),
             ),
           ),
-          // Go Back button at the bottom
+          // Animated Back button
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
@@ -130,7 +267,19 @@ class MeatSpaPage extends StatelessWidget {
                 onPressed: () {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (context) => const SignUpScreen()),
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) => const SignUpScreen(),
+                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                        var begin = const Offset(-1.0, 0.0);
+                        var end = Offset.zero;
+                        var curve = Curves.easeInOut;
+                        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                        return SlideTransition(
+                          position: animation.drive(tween),
+                          child: child,
+                        );
+                      },
+                    ),
                   );
                 },
                 child: const Row(
